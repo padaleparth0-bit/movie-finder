@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Netflix CineHub - Movie Recommendations & Trailers</title>
+  <meta name="description"
+    content="Discover top-rated movies, explore Netflix-style category rows, and watch official trailers on Netflix CineHub." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            netflix: { red: '#E50914', dark: '#141414', card: '#1a1a1a', border: '#2a2a2a' },
+            muted: '#B3B3B3'
+          },
+          fontFamily: { inter: ['Inter', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #141414;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #141414;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #E50914;
+      border-radius: 3px;
+    }
+
+    /* Hide scrollbar for category sliders */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Navbar */
+    #navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: linear-gradient(180deg, rgba(20, 20, 20, .98) 0%, rgba(20, 20, 20, .88) 100%);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(255, 255, 255, .07);
+      transition: all .3s;
+    }
+
+    /* Quick navigation pills */
+    .nav-pill {
+      white-space: nowrap;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #B3B3B3;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+      text-decoration: none;
+    }
+
+    .nav-pill:hover {
+      background: rgba(229, 9, 20, 0.2);
+      color: #fff;
+      border-color: rgba(229, 9, 20, 0.5);
+      transform: translateY(-1px);
+    }
+
+    /* Hero */
+    #hero {
+      position: relative;
+      min-height: 75vh;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    #hero-bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center 20%;
+      transition: background-image .7s ease-in-out;
+    }
+
+    #hero-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(20, 20, 20, 1) 0%, rgba(20, 20, 20, .75) 50%, rgba(20, 20, 20, .2) 100%),
+        linear-gradient(0deg, rgba(20, 20, 20, 1) 0%, transparent 45%);
+    }
+
+    /* Netflix Row Styling */
+    .netflix-row {
+      position: relative;
+      margin-bottom: 40px;
+      padding: 0 4px;
+    }
+
+    .row-slider {
+      display: flex;
+      gap: 14px;
+      overflow-x: auto;
+      padding: 14px 4px 20px 4px;
+      scroll-snap-type: x mandatory;
+    }
+
+    .movie-card {
+      flex: 0 0 180px;
+      width: 180px;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      scroll-snap-align: start;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      transition: transform .28s cubic-bezier(.16, 1, .3, 1), box-shadow .28s, border-color .28s;
+    }
+
+    @media (min-width: 768px) {
+      .movie-card {
+        flex: 0 0 200px;
+        width: 200px;
+      }
+    }
+
+    .movie-card:hover {
+      transform: translateY(-8px) scale(1.05);
+      border-color: #E50914;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, .8), 0 0 16px rgba(229, 9, 20, .45);
+      z-index: 10;
+    }
+
+    .movie-card:hover .card-overlay {
+      opacity: 1;
+    }
+
+    .card-poster {
+      width: 100%;
+      aspect-ratio: 2/3;
+      object-fit: cover;
+      display: block;
+    }
+
+    .card-overlay {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      background: linear-gradient(0deg, rgba(0, 0, 0, .92) 0%, rgba(229, 9, 20, .4) 60%, transparent 100%);
+      transition: opacity .25s;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 12px;
+    }
+
+    /* Slider Arrow Buttons */
+    .slider-arrow {
+      position: absolute;
+      top: 48px;
+      bottom: 20px;
+      width: 44px;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity .25s, background .2s, transform .2s;
+      border: none;
+      outline: none;
+      color: white;
+    }
+
+    .netflix-row:hover .slider-arrow {
+      opacity: 1;
+    }
+
+    .slider-arrow.left {
+      left: 0;
+      border-radius: 0 8px 8px 0;
+      background: linear-gradient(90deg, rgba(20, 20, 20, 0.95) 0%, rgba(20, 20, 20, 0.6) 70%, transparent 100%);
+    }
+
+    .slider-arrow.right {
+      right: 0;
+      border-radius: 8px 0 0 8px;
+      background: linear-gradient(270deg, rgba(20, 20, 20, 0.95) 0%, rgba(20, 20, 20, 0.6) 70%, transparent 100%);
+    }
+
+    .slider-arrow:hover {
+      background: rgba(229, 9, 20, 0.85);
+      color: #fff;
+    }
+
+    /* Rating & IMDb badge */
+    .rating-badge {
+      background: linear-gradient(135deg, #E50914 0%, #b00710 100%);
+      font-weight: 700;
+      font-size: .7rem;
+      letter-spacing: .04em;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+
+    .imdb-badge {
+      background: #f5c518;
+      color: #000;
+      font-weight: 800;
+      font-size: .75rem;
+      letter-spacing: .02em;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .category-badge {
+      background: rgba(229, 9, 20, 0.18);
+      color: #ff6b6b;
+      border: 1px solid rgba(229, 9, 20, 0.4);
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+
+    /* Modal */
+    #modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, .88);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s ease;
+    }
+
+    #modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    #modal-box {
+      position: relative;
+      background: #181818;
+      border-radius: 16px;
+      border: 1px solid #2e2e2e;
+      overflow: hidden;
+      max-width: 860px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      transform: scale(.92) translateY(20px);
+      transition: transform .35s cubic-bezier(.16, 1, .3, 1);
+    }
+
+    #modal-overlay.open #modal-box {
+      transform: scale(1) translateY(0);
+    }
+
+    #modal-backdrop {
+      width: 100%;
+      height: 280px;
+      object-fit: cover;
+      display: block;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 1) 50%, transparent 100%);
+      -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 1) 50%, transparent 100%);
+    }
+
+    #modal-close-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 30;
+      background: rgba(0, 0, 0, .7);
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 50%;
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #fff;
+      font-size: 1.2rem;
+      transition: background .2s, transform .15s;
+    }
+
+    #modal-close-btn:hover {
+      background: #E50914;
+      transform: scale(1.1);
+    }
+
+    /* Trailer CTA */
+    #trailer-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #E50914;
+      color: #fff;
+      font-weight: 700;
+      font-size: .95rem;
+      padding: 12px 28px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background .2s, transform .15s, box-shadow .2s;
+      box-shadow: 0 4px 20px rgba(229, 9, 20, .4);
+    }
+
+    #trailer-btn:hover {
+      background: #b00710;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(229, 9, 20, .6);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen">
+
+  <!-- ── NAVBAR ── -->
+  <nav id="navbar" class="px-6 py-3">
+    <div class="max-w-screen-2xl mx-auto flex flex-col md:flex-row md:items-center gap-3">
+      <div class="flex items-center justify-between w-full md:w-auto">
+        <!-- Logo -->
+        <a href="/" id="logo" class="flex-shrink-0 flex items-center gap-2 select-none">
+          <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="6" fill="#E50914" />
+            <path d="M8 6v20l8-10 8 10V6" fill="white" />
+          </svg>
+          <span class="text-white font-black text-xl tracking-tight leading-none">
+            SIES <span class="text-netflix-red">CINEHUB</span>
+          </span>
+        </a>
+
+        <!-- Total Movies Badge -->
+        <span id="catalogue-badge"
+          class="md:hidden text-xs bg-netflix-red/20 text-netflix-red border border-netflix-red/30 px-2.5 py-1 rounded-full font-bold">
+          140+ Movies
+        </span>
+      </div>
+
+      <!-- Quick Category Jump Links (Horizontal Scroll) -->
+      <div id="quick-links" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 flex-1">
+        <a href="#row-trending" class="nav-pill">🔥 Trending</a>
+        <a href="#row-top_rated" class="nav-pill">⭐ Top Rated</a>
+        <a href="#row-now_playing" class="nav-pill">🎬 In Theatres</a>
+        <a href="#row-action" class="nav-pill">💥 Action</a>
+        <a href="#row-scifi" class="nav-pill">🚀 Sci-Fi</a>
+        <a href="#row-horror" class="nav-pill">👻 Horror</a>
+        <a href="#row-animation" class="nav-pill">✨ Animation</a>
+        <a href="#row-comedy" class="nav-pill">🍿 Comedy</a>
+      </div>
+
+      <!-- Search & Filters -->
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <!-- Search bar -->
+        <div class="relative flex-1 md:w-64">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input id="search-input" type="search" placeholder="Search all 140+ movies..." aria-label="Search movies"
+            class="w-full pl-9 pr-8 py-2 rounded-lg text-sm bg-black/60 border border-white/15 text-white placeholder-gray-400 focus:outline-none focus:border-netflix-red focus:ring-1 focus:ring-netflix-red" />
+          <button id="search-clear-btn"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white hidden text-xs bg-white/10 hover:bg-white/20 rounded-full w-4 h-4 flex items-center justify-center">✕</button>
+        </div>
+
+        <!-- Genre dropdown -->
+        <select id="genre-filter"
+          class="border border-white/15 text-white text-xs rounded-lg px-2.5 py-2 cursor-pointer bg-neutral-900 focus:outline-none focus:border-netflix-red">
+          <option value="">All Genres</option>
+        </select>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── HERO BANNER ── -->
+  <section id="hero" class="pt-24 md:pt-20">
+    <div id="hero-bg"></div>
+    <div class="relative z-10 max-w-screen-2xl mx-auto px-6 py-24 md:py-32 w-full">
+      <div
+        class="inline-flex items-center gap-2 mb-4 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+        <span class="w-2 h-2 rounded-full bg-netflix-red animate-pulse"></span>
+        <span id="hero-badge" class="text-xs font-bold tracking-widest uppercase text-netflix-red">FEATURED
+          BLOCKBUSTER</span>
+        <span class="text-gray-500">•</span>
+        <span id="hero-rating" class="text-xs font-bold text-amber-400">★ 8.5</span>
+      </div>
+      <h1 id="hero-title"
+        class="text-4xl md:text-6xl lg:text-7xl font-black leading-tight tracking-tight mb-4 text-white max-w-3xl"
+        style="text-shadow:0 4px 28px rgba(0,0,0,.9)">
+        Loading...
+      </h1>
+      <p id="hero-overview" class="text-gray-300 max-w-xl text-sm md:text-base leading-relaxed mb-8 line-clamp-3"
+        style="text-shadow:0 2px 10px rgba(0,0,0,.9)">
+        Discover cinema from across 8 curated categories with live trailers and ratings.
+      </p>
+      <div class="flex items-center gap-4">
+        <button id="hero-cta"
+          class="inline-flex items-center gap-2 bg-netflix-red hover:bg-red-700 text-white font-bold px-7 py-3 rounded-lg transition-all duration-200 hover:scale-105 shadow-lg shadow-red-900/40">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          Watch Trailer
+        </button>
+        <button id="hero-info"
+          class="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 border border-white/20 backdrop-blur-md">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <circle cx="12" cy="12" r="10" stroke-width="2" />
+            <path d="M12 8v4m0 4h.01" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          More Info
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── MAIN CONTENT ── -->
+  <main class="max-w-screen-2xl mx-auto px-6 py-8">
+
+    <!-- SEARCH & FILTER RESULTS VIEW (Active when user searches or filters) -->
+    <div id="search-results-section" class="hidden mb-16">
+      <div class="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
+        <div>
+          <h2 id="search-results-heading" class="text-2xl font-black text-white">Search Results</h2>
+          <p id="search-results-sub" class="text-muted text-sm mt-1">Showing matching titles</p>
+        </div>
+        <button id="reset-search-btn"
+          class="inline-flex items-center gap-1.5 text-xs text-netflix-red hover:text-white bg-netflix-red/10 hover:bg-netflix-red/30 px-3 py-1.5 rounded-lg border border-netflix-red/30 font-semibold transition">
+          ✕ Back to Category Rows
+        </button>
+      </div>
+      <div id="search-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+      </div>
+      <div id="search-no-results" class="hidden text-center py-20">
+        <p class="text-4xl mb-3">🎬</p>
+        <h3 class="text-xl font-bold text-white mb-2">No movies found</h3>
+        <p class="text-muted text-sm max-w-sm mx-auto">Try searching for a different movie title, director, or clear
+          your genre filter.</p>
+      </div>
+    </div>
+
+    <!-- NETFLIX CATEGORIES CONTAINER (8 Horizontal Rows) -->
+    <div id="categories-container" class="space-y-2">
+      <!-- Loading skeleton placeholder -->
+      <div id="categories-loading" class="text-center py-16">
+        <div
+          class="inline-block w-8 h-8 border-4 border-netflix-red border-t-transparent rounded-full animate-spin mb-4">
+        </div>
+        <p class="text-muted text-sm font-medium">Loading Netflix categories & movies...</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── FOOTER ── -->
+  <footer class="border-t border-white/10 py-10 text-center text-muted text-xs">
+    <div class="max-w-screen-2xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <span class="text-white font-black">NETFLIX <span class="text-netflix-red">CINEHUB</span></span>
+        <span class="text-gray-600">|</span>
+        <span>Powered by TMDB Live API</span>
+      </div>
+      <p>Data provided by TMDB. Trailers streamed via YouTube.</p>
+    </div>
+  </footer>
+
+  <!-- ── MOVIE DETAIL MODAL ── -->
+  <div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div id="modal-box">
+      <!-- Close btn -->
+      <button id="modal-close-btn" aria-label="Close modal">✕</button>
+
+      <!-- Backdrop image -->
+      <img id="modal-backdrop" src="" alt="Movie Backdrop" />
+
+      <!-- Content -->
+      <div class="p-6 md:p-8 -mt-16 relative">
+        <div class="flex flex-col md:flex-row gap-6 md:gap-8">
+          <!-- Poster -->
+          <div class="flex-shrink-0 mx-auto md:mx-0">
+            <img id="modal-poster" src="" alt="Poster"
+              class="w-36 md:w-44 rounded-xl shadow-2xl border border-white/15" />
+          </div>
+
+          <!-- Details -->
+          <div class="flex-1 min-w-0 text-left">
+            <h2 id="modal-title" class="text-2xl md:text-3xl font-black tracking-tight text-white mb-2"></h2>
+
+            <div class="flex flex-wrap items-center gap-2.5 mb-3 text-sm">
+              <span id="modal-year" class="text-muted font-medium"></span>
+              <span class="text-gray-600">•</span>
+              <span id="modal-duration" class="text-muted font-medium">Loading runtime...</span>
+              <span class="text-gray-600">•</span>
+              <span id="modal-rating" class="imdb-badge">★ 0.0</span>
+            </div>
+
+            <!-- Genres -->
+            <div id="modal-genres" class="flex flex-wrap gap-1.5 mb-4"></div>
+
+            <!-- Director -->
+            <p id="modal-director" class="text-muted text-xs md:text-sm mb-4">
+              <span class="text-gray-400 font-semibold">Director:</span> <span id="modal-director-val"
+                class="text-white">Loading...</span>
+            </p>
+
+            <!-- Overview -->
+            <p id="modal-overview" class="text-gray-300 text-sm leading-relaxed mb-6 max-w-xl"></p>
+
+            <!-- Trailer CTA -->
+            <a id="trailer-btn" href="#" target="_blank" rel="noopener noreferrer">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path
+                  d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+              </svg>
+              Watch Official Trailer
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── APPLICATION JAVASCRIPT ── -->
+  <script>
+      (function () {
+        let allCategories = [];
+        let allMoviesFlat = [];
+        let movieMap = new Map();
+        let currentHeroMovie = null;
+
+        // Elements
+        const categoriesContainer = document.getElementById('categories-container');
+        const searchResultsSection = document.getElementById('search-results-section');
+        const searchGrid = document.getElementById('search-grid');
+        const searchNoResults = document.getElementById('search-no-results');
+        const searchHeading = document.getElementById('search-results-heading');
+        const searchSub = document.getElementById('search-results-sub');
+        const searchInput = document.getElementById('search-input');
+        const searchClearBtn = document.getElementById('search-clear-btn');
+        const genreFilter = document.getElementById('genre-filter');
+        const resetSearchBtn = document.getElementById('reset-search-btn');
+
+        // Hero elements
+        const heroBg = document.getElementById('hero-bg');
+        const heroTitle = document.getElementById('hero-title');
+        const heroOverview = document.getElementById('hero-overview');
+        const heroRating = document.getElementById('hero-rating');
+        const heroCta = document.getElementById('hero-cta');
+        const heroInfo = document.getElementById('hero-info');
+
+        // Modal elements
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalClose = document.getElementById('modal-close-btn');
+        const modalBackdrop = document.getElementById('modal-backdrop');
+        const modalPoster = document.getElementById('modal-poster');
+        const modalTitle = document.getElementById('modal-title');
+        const modalYear = document.getElementById('modal-year');
+        const modalDuration = document.getElementById('modal-duration');
+        const modalRating = document.getElementById('modal-rating');
+        const modalGenres = document.getElementById('modal-genres');
+        const modalDirectorVal = document.getElementById('modal-director-val');
+        const modalOverview = document.getElementById('modal-overview');
+        const trailerBtn = document.getElementById('trailer-btn');
+
+        // Escape helper
+        function escapeHtml(str) {
+          if (!str) return '';
+          return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+        }
+
+        // Fetch all category rows
+        async function loadCategories() {
+          try {
+            const res = await fetch('/api/categories');
+            const data = await res.json();
+            allCategories = data.categories || [];
+            allMoviesFlat = [];
+            movieMap.clear();
+
+            // Aggregate unique movies
+            allCategories.forEach(cat => {
+              cat.movies.forEach(m => {
+                if (!movieMap.has(m.id)) {
+                  movieMap.set(m.id, m);
+                  allMoviesFlat.push(m);
+                }
+              });
+            });
+
+            // Setup Hero
+            if (allCategories.length > 0 && allCategories[0].movies.length > 0) {
+              setupHero(allCategories[0].movies[0]);
+            }
+
+            // Populate Genre Dropdown
+            populateGenres();
+
+            // Render Rows
+            renderCategoryRows();
+
+          } catch (err) {
+            console.error("Failed to load categories:", err);
+            categoriesContainer.innerHTML = `
+            <div class="text-center py-12 text-red-400">
+              <p class="font-bold text-lg mb-2">Could not load movies</p>
+              <p class="text-xs text-muted">Please verify your Flask server is running and refresh.</p>
+            </div>
+          `;
+          }
+        }
+
+        // Setup Hero banner
+        function setupHero(movie) {
+          if (!movie) return;
+          currentHeroMovie = movie;
+          heroBg.style.backgroundImage = `url('${movie.backdrop || movie.poster}')`;
+          heroTitle.textContent = movie.title;
+          heroOverview.textContent = movie.overview || "No overview available.";
+          heroRating.textContent = `★ ${movie.rating || 'N/A'}`;
+
+          heroCta.onclick = () => {
+            window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(movie.trailer_query)}`, '_blank');
+          };
+          heroInfo.onclick = () => openModal(movie);
+        }
+
+        // Populate genres dropdown
+        function populateGenres() {
+          const genres = new Set();
+          allMoviesFlat.forEach(m => {
+            if (Array.isArray(m.genre)) {
+              m.genre.forEach(g => { if (g && g !== "Other" && g !== "Feature") genres.add(g); });
+            }
+          });
+          const sorted = Array.from(genres).sort();
+          genreFilter.innerHTML = '<option value="">All Genres</option>' +
+            sorted.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+        }
+
+        // Render movie card HTML
+        function renderMovieCard(m) {
+          const posterSrc = m.poster || 'https://via.placeholder.com/300x450/1a1a1a/555?text=No+Poster';
+          const genresDisplay = (m.genre || []).slice(0, 2).join(', ');
+          return `
+          <div
+            class="movie-card group"
+            data-id="${m.id}"
+            tabindex="0"
+            role="button"
+            aria-label="${escapeHtml(m.title)}"
+          >
+            <img
+              class="card-poster"
+              src="${escapeHtml(posterSrc)}"
+              alt="${escapeHtml(m.title)}"
+              loading="lazy"
+              onerror="this.src='https://via.placeholder.com/300x450/1a1a1a/555?text=No+Image'"
+            />
+            <div class="card-overlay">
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="rating-badge">★ ${m.rating}</span>
+                <span class="text-xs text-gray-300 font-medium">${m.year || ''}</span>
+              </div>
+              <h3 class="text-xs font-bold text-white line-clamp-1 mb-1 leading-tight">${escapeHtml(m.title)}</h3>
+              <p class="text-[10px] text-gray-400 line-clamp-1">${escapeHtml(genresDisplay)}</p>
+              <div class="mt-2 flex items-center justify-center bg-netflix-red/90 group-hover:bg-netflix-red text-white py-1 rounded text-[11px] font-bold gap-1 transition">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                Details & Trailer
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // Render 8 Netflix Category rows
+        function renderCategoryRows() {
+          if (!allCategories.length) return;
+
+          let html = '';
+          allCategories.forEach((cat, index) => {
+            const rowId = `row-${cat.id}`;
+            const sliderId = `slider-${cat.id}`;
+            html += `
+            <div id="${rowId}" class="netflix-row pt-6">
+              <!-- Row Header -->
+              <div class="flex items-center justify-between mb-2 px-1">
+                <div class="flex items-center gap-3">
+                  <h2 class="text-xl md:text-2xl font-black tracking-tight text-white">${escapeHtml(cat.title)}</h2>
+                  ${cat.badge ? `<span class="category-badge">${escapeHtml(cat.badge)}</span>` : ''}
+                </div>
+                <span class="text-xs text-gray-400 font-medium">${cat.movies.length} titles</span>
+              </div>
+
+              <!-- Horizontal Slider with Arrows -->
+              <div class="relative group/slider">
+                <!-- Left arrow -->
+                <button
+                  class="slider-arrow left"
+                  aria-label="Scroll left"
+                  onclick="scrollRow('${sliderId}', -600)"
+                >
+                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                <!-- Cards track -->
+                <div id="${sliderId}" class="row-slider no-scrollbar">
+                  ${cat.movies.map(m => renderMovieCard(m)).join('')}
+                </div>
+
+                <!-- Right arrow -->
+                <button
+                  class="slider-arrow right"
+                  aria-label="Scroll right"
+                  onclick="scrollRow('${sliderId}', 600)"
+                >
+                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          `;
+          });
+
+          categoriesContainer.innerHTML = html;
+          bindCardClicks();
+        }
+
+        // Smooth horizontal row scroll
+        window.scrollRow = function (sliderId, distance) {
+          const slider = document.getElementById(sliderId);
+          if (slider) {
+            slider.scrollBy({ left: distance, behavior: 'smooth' });
+          }
+        };
+
+        // Bind card clicks
+        function bindCardClicks() {
+          document.querySelectorAll('.movie-card').forEach(card => {
+            card.onclick = () => {
+              const id = parseInt(card.getAttribute('data-id'), 10);
+              const movie = movieMap.get(id);
+              if (movie) openModal(movie);
+            };
+            card.onkeydown = (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const id = parseInt(card.getAttribute('data-id'), 10);
+                const movie = movieMap.get(id);
+                if (movie) openModal(movie);
+              }
+            };
+          });
+        }
+
+        // Open Movie Modal with lazy detail loading
+        async function openModal(movie) {
+          if (!movie) return;
+
+          modalTitle.textContent = movie.title;
+          modalYear.textContent = movie.year || 'N/A';
+          modalRating.textContent = `★ ${movie.rating || '0.0'}`;
+          modalOverview.textContent = movie.overview || "No overview available for this title.";
+          modalPoster.src = movie.poster || '';
+          modalBackdrop.src = movie.backdrop || movie.poster || '';
+
+          // Genre pills
+          modalGenres.innerHTML = (movie.genre || []).map(g =>
+            `<span class="text-xs bg-white/10 text-gray-200 px-2.5 py-1 rounded-md font-medium">${escapeHtml(g)}</span>`
+          ).join('');
+
+          // Trailer button
+          trailerBtn.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(movie.trailer_query)}`;
+
+          // Initial Director & Runtime state
+          modalDuration.textContent = movie.duration && movie.duration !== "N/A" ? movie.duration : "Loading runtime...";
+          modalDirectorVal.textContent = movie.director && !movie.director.includes("available in details") ? movie.director : "Fetching director...";
+
+          // Show modal
+          modalOverlay.classList.add('open');
+          document.body.style.overflow = 'hidden';
+
+          // Async detail fetch for exact director & runtime
+          try {
+            const res = await fetch(`/api/movies/${movie.id}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.movie) {
+                if (data.movie.duration && data.movie.duration !== "N/A") {
+                  modalDuration.textContent = data.movie.duration;
+                } else {
+                  modalDuration.textContent = "Feature Length";
+                }
+                if (data.movie.director && data.movie.director !== "N/A") {
+                  modalDirectorVal.textContent = data.movie.director;
+                } else {
+                  modalDirectorVal.textContent = "Information not listed";
+                }
+              }
+            }
+          } catch (e) {
+            if (modalDuration.textContent.includes("Loading")) modalDuration.textContent = "Feature Length";
+            if (modalDirectorVal.textContent.includes("Fetching")) modalDirectorVal.textContent = "N/A";
+          }
+        }
+
+        // Close modal
+        function closeModal() {
+          modalOverlay.classList.remove('open');
+          document.body.style.overflow = '';
+        }
+        modalClose.addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+        // Search & Genre Filtering
+        let searchDebounce = null;
+
+        function handleFilter() {
+          const query = searchInput.value.trim().toLowerCase();
+          const selectedGenre = genreFilter.value;
+
+          // Toggle clear button
+          if (query.length > 0) {
+            searchClearBtn.classList.remove('hidden');
+          } else {
+            searchClearBtn.classList.add('hidden');
+          }
+
+          // If no search and no genre filter, show the 8 Category rows
+          if (!query && !selectedGenre) {
+            searchResultsSection.classList.add('hidden');
+            categoriesContainer.classList.remove('hidden');
+            return;
+          }
+
+          // Active search/filter mode
+          categoriesContainer.classList.add('hidden');
+          searchResultsSection.classList.remove('hidden');
+
+          // Filter through all loaded movies
+          let matched = allMoviesFlat.filter(m => {
+            const matchQ = !query ||
+              m.title.toLowerCase().includes(query) ||
+              (m.genre && m.genre.some(g => g.toLowerCase().includes(query)));
+            const matchG = !selectedGenre || (m.genre && m.genre.includes(selectedGenre));
+            return matchQ && matchG;
+          });
+
+          searchHeading.textContent = query ? `Results for "${query}"` : `${selectedGenre} Movies`;
+          searchSub.textContent = `Found ${matched.length} movies matching your selection`;
+
+          if (matched.length === 0) {
+            searchGrid.innerHTML = '';
+            searchNoResults.classList.remove('hidden');
+          } else {
+            searchNoResults.classList.add('hidden');
+            searchGrid.innerHTML = matched.map(m => renderMovieCard(m)).join('');
+            bindCardClicks();
+          }
+        }
+
+        searchInput.addEventListener('input', () => {
+          clearTimeout(searchDebounce);
+          searchDebounce = setTimeout(handleFilter, 150);
+        });
+
+        genreFilter.addEventListener('change', handleFilter);
+
+        function resetSearch() {
+          searchInput.value = '';
+          genreFilter.value = '';
+          searchClearBtn.classList.add('hidden');
+          searchResultsSection.classList.add('hidden');
+          categoriesContainer.classList.remove('hidden');
+        }
+
+        searchClearBtn.addEventListener('click', resetSearch);
+        resetSearchBtn.addEventListener('click', resetSearch);
+
+        // Start
+        loadCategories();
+
+      })();
+  </script>
+</body>
+
+</html>
